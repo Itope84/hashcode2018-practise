@@ -1,53 +1,59 @@
 <?php
 
-echo "example pizza";
-$input = fopen("example.in", 'r') or die('failed to open');
-// read the first line, this contains descriptions
-$line_1 = fgets($input);
-echo $line_1.'<br>';
-// explode the first line into an array
-$input_arr = explode(' ', $line_1);
-$t_rows = $input_arr[0];
-$t_columns = $input_arr[1];
-$min_each_ing = $input_arr[2];
-$max_total_ing = $input_arr[3];
+echo "small pizza".'<br>';
+$input = fopen("small.in", 'r') or die('failed to open');
+#store the description array into individual variables
+list($t_rows, $t_columns, $min_each_ing, $max_total_ing) = getDescription($input);
 $total_cells = $t_rows*$t_columns;
 echo "Total Cells:".$total_cells.'<br>';
 
-// get the other lines which are descriptions of each array
-$i=1;
-$pizza = array();
-while (!feof($input)) {
-	$i++;
-	$pizza[$i] = fgets($input);
-	
-}
-
-unset($pizza[$i]);
-$pizza = array_values($pizza);
-foreach ($pizza as $row => $value) {
-	$pizza[$row] = str_split($pizza[$row]);	
-	unset($pizza[$row][$t_columns]);
-	$pizza[$row] = array_values($pizza[$row]);
+function getDescription($file){
+	// read the first line, this contains descriptions
+	$desc = fgets($file);
+	echo $desc.'<br>';
+	// explode the first line into an array
+	$desc = explode(' ', $desc);
+	return $desc;
 }
 
 
-echo "Pizza: <br>";
-// print_r($pizza);
-// foreach ($pizza as $row => $column) {
-// 	foreach ($column as $col => $ing) {
-// 		echo $ing.' ';
-// 	}
-// 	echo "<br>";
-// }
+// // get the other lines which are the pizza arrangement
+function getPizza($file){
+	$i=0;
+	$pizza = array();
+	while (!feof($file)) {
+		$i++;
+		$pizza[$i] = fgets($file);
+	}	
+	unset($pizza[$i]); #delete the last linebreak
+	$pizza = array_values($pizza); #reset the array keys
+	// set each pizza row into an array of individual element
+	foreach ($pizza as $row => $value) {
+		global $t_columns;
+		$pizza[$row] = str_split($pizza[$row]);
+		// unset the last element as that is just a line break
+		unset($pizza[$row][$t_columns]);
+		$pizza[$row] = array_values($pizza[$row]);
+	}
+	return $pizza;
+}
+$pizza = getPizza($input);
 
-// open output file;
+
+function limitExceeded($items){
+	global $max_total_ing;
+	if ($items>=$max_total_ing) {
+			return true;
+	}
+	else{
+		return false;
+	}
+}
+
+$slices = 0;
+
 $output = fopen("example.txt", 'w') or die('failed to open');
 
-
-$starting_point = 0;
-$row_id = 0;
-$slices = 0;
 foreach ($pizza as $row => $column) {
 	$starting_point = 0;
 	for ($i=0; $i<$t_columns; $i++) { 
@@ -64,9 +70,9 @@ foreach ($pizza as $row => $column) {
 			$m++;
 			$start = $last_m = $end= $i;
 			$items++;
-			$j = $i+1; //move to the next element
+			$cursor = $i+1; //move to the next element
 			// find other Ms until M is up to min_each_ing 
-			while ($m<$min_each_ing && $j<$t_columns) {
+			while ($m<$min_each_ing && $cursor<$t_columns) {
 				// if current position-first m ($starting_point) is > max_total_ing, end and start from the m after the first m.
 				
 				if ($items>=$max_total_ing) {
@@ -75,23 +81,23 @@ foreach ($pizza as $row => $column) {
 				switch ($pizza[$row][$j]) {
 					case 'M':
 						$m++;
-						$last_m = $j;
-						$end = $j;
-						
+						$last_m = $counter;
+						$items++;
+						$end = $counter;
 						break;
 				// we also want to count the number of t's in betweeen.	
 					case 'T':
 						$t++;
-						
-						$end = $j;
+						$items++;
+						$end = $counter;
 						break;
 					default:
 						break;
 
 				}
 				
-				$j++;
-				$items = $j-$start;
+				$counter++;
+				
 			}
 			// if at the end of the while loop, the no of m<min_each_ing, then we want to start counting from the next m.
 			if ($m<$min_each_ing) {
@@ -100,7 +106,7 @@ foreach ($pizza as $row => $column) {
 			}
 
 			$rem_t = $min_each_ing-$t;
-			$rem_ing = $max_total_ing-$items;
+			$rem_ing = (int)$max_total_ing-$items;
 			// if remaining t>0 and remaining total >= rem_t, count backwards from starting point to find Ts
 			if ($rem_ing>=$rem_t) {
 				if ($rem_t>0) {
@@ -130,10 +136,10 @@ foreach ($pizza as $row => $column) {
 							if ($pizza[$row][$l]=='T') {
 								$t++;
 								$rem_t--;
-								
+								$items++;
 								$end = $l;
 							}
-							$items++;
+							
 							if ($rem_t==0) {
 								break;
 							}
@@ -153,7 +159,6 @@ foreach ($pizza as $row => $column) {
 			}
 			// modify starting point as the last item's position and start again
 			$slices++;
-
 			$pattern = $row." ".$start." ".$row." ".$end."\n";
 			echo $pattern;
 			fwrite($output, $pattern) or die("Could not write to file");
